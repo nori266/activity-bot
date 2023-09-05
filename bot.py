@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import telebot
 
-from db_manager.db_entities import Activity
+from db_manager.db_entities import Activity, ActivityCatalog
 
 
 load_dotenv()
@@ -39,19 +39,24 @@ def csv_to_dict(filename):
     return activities
 
 
-activities = csv_to_dict("activities_list.csv")  # TODO to a separate table
+# Load activities from the database
+def get_active_activities_from_db():
+    session = Session()
+    active_activities = session.query(ActivityCatalog).filter_by(status='active').all()
+    session.close()
+    return active_activities
+
+
+activities = get_active_activities_from_db()
 
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-
-    # Filter activities with status 'active'
-    active_activities = [a for a in activities if a['status'] == 'active']
-
     markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
-    # TODO most popular activities instead of just first
-    activity_buttons = [telebot.types.KeyboardButton(f'{a["name"]} {a["emoji"]}') for a in
-                        active_activities[:6]]  # Take the first 6 active activities
+
+    # TODO: Get most popular activities instead of just first.
+    activity_buttons = [telebot.types.KeyboardButton(f'{a.name} {a.emoji}') for a in
+                        activities[:6]]  # Take the first 6 active activities
     markup.add(*activity_buttons)
     markup.add(telebot.types.KeyboardButton("More Activities"))
     bot.send_message(message.chat.id, "Choose an activity to start tracking:", reply_markup=markup)
@@ -63,47 +68,52 @@ def more_activities(message):
     pass
 
 
-@bot.message_handler(func=lambda message: any(a["name"] == activity_name_wo_emoji(message.text) for a in activities))
+# Define a function to retrieve activity_id by its name
+def get_activity_id_by_name(name, session):
+    activity = session.query(ActivityCatalog).filter(ActivityCatalog.name == name).first()
+    if activity:
+        return activity.id
+    return None
+
+
+@bot.message_handler(func=lambda message: any(a.name == activity_name_wo_emoji(message.text) for a in activities))
 def start_or_stop_activity(message):
     user_id = message.chat.id
     activity_name = activity_name_wo_emoji(message.text)
 
     session = Session()
 
+    # Fetch the activity_id using the name
+    activity_id = get_activity_id_by_name(activity_name, session)
+
+    if not activity_id:  # If activity is not found
+        session.close()
+        bot.send_message(user_id, f"Couldn't find activity: {activity_name}")
+        return
+
     if user_id not in active_sessions:
         active_sessions[user_id] = {}
 
-    if activity_name in active_sessions[user_id]:
+    if activity_id in active_sessions[user_id]:
         # Stop the activity
-        start_time = active_sessions[user_id][activity_name]
+        start_time = active_sessions[user_id][activity_id]
         end_time = datetime.now()
         duration_timedelta = end_time - start_time
         duration_seconds = duration_timedelta.seconds
 
-        activity = Activity(user_id=user_id, activity=activity_name, start_time=start_time, end_time=end_time, duration=duration_seconds)
+        # Here, using activity_id instead of activity_name
+        activity = Activity(user_id=user_id, activity_id=activity_id, start_time=start_time, end_time=end_time, duration=duration_seconds)
         session.add(activity)
         session.commit()
 
-        del active_sessions[user_id][activity_name]
+        del active_sessions[user_id][activity_id]
         bot.send_message(user_id, f"Stopped tracking {activity_name}. Duration: {duration_seconds} seconds")
     else:
         # Start the activity
-        active_sessions[user_id][activity_name] = datetime.now()
+        active_sessions[user_id][activity_id] = datetime.now()
         bot.send_message(user_id, f"Started tracking {activity_name}. Click again to stop.")
 
     session.close()
-
-
-def csv_to_dict(filename):
-    activities = []
-
-    with open(filename, mode='r') as infile:
-        reader = csv.DictReader(infile)
-        for row in reader:
-            activities.append(row)
-
-    return activities
-
 
 def format_duration(duration):
     hours, remainder = divmod(duration.seconds, 3600)
