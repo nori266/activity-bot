@@ -112,10 +112,10 @@ def reload_data(csv_file):
     db_ddl = DB_DDL()
     # TODO add a check to see if the csv file exists
     # TODO backup the database before dropping the tables
-    db_ddl.drop_table(Activity)
-    db_ddl.drop_table(ActivityCatalog)
-    db_ddl.create_all_tables()
-    db_ddl.add_activity_catalog_from_csv(csv_file)
+    # db_ddl.drop_table(Activity)
+    # db_ddl.drop_table(ActivityCatalog)
+    # db_ddl.create_all_tables()
+    # db_ddl.add_activity_catalog_from_csv(csv_file)
     db_ddl.check_tables_created()
 
 

@@ -53,7 +53,7 @@ activities = get_active_activities_from_db()
 
 
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
+def send_welcome(message, is_first_message=True):
     session = Session()
 
     # Fetch activities ordered by last_chosen in descending order
@@ -68,7 +68,11 @@ def send_welcome(message):
 
     markup.add(*activity_buttons)
     markup.add(telebot.types.KeyboardButton("More Activities"))
-    bot.send_message(message.chat.id, "Choose an activity to start tracking:", reply_markup=markup)
+    if is_first_message:
+        text = "Choose an activity to start tracking:"
+    else:
+        text = "..."
+    bot.send_message(message.chat.id, text, reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: message.text == "More Activities")
@@ -108,6 +112,7 @@ def handle_activity_callback(call):
 
         # Call the function
         start_or_stop_activity(mock_message)
+        send_welcome(mock_message, False)
 
     bot.answer_callback_query(call.id)
 
@@ -144,31 +149,31 @@ def start_or_stop_activity(message):
         end_time = datetime.now()
         duration_timedelta = end_time - start_time
         duration_seconds = duration_timedelta.seconds
+        formatted_duration = format_duration(duration_seconds)
 
         activity = Activity(user_id=user_id, activity_id=activity_id, start_time=start_time, end_time=end_time, duration=duration_seconds)
         session.add(activity)
+        session.commit()
 
-        # Update the last_chosen timestamp for the activity
+        del active_sessions[user_id][activity_id]
+        bot.send_message(user_id, f"Stopped tracking {activity_name}. Duration: {formatted_duration} seconds")
+    else:
+        # Start the activity
+        active_sessions[user_id][activity_id] = datetime.now()
+        bot.send_message(user_id, f"Started tracking {activity_name}. Click again to stop.")
+
+        # Update the last_chosen timestamp for the activity to rearrange the buttons
         chosen_activity = session.query(ActivityCatalog).filter_by(name=activity_name).first()
         if chosen_activity:
             chosen_activity.last_chosen = datetime.now()
             session.add(chosen_activity)
             session.commit()
 
-        session.commit()
-
-        del active_sessions[user_id][activity_id]
-        bot.send_message(user_id, f"Stopped tracking {activity_name}. Duration: {duration_seconds} seconds")
-    else:
-        # Start the activity
-        active_sessions[user_id][activity_id] = datetime.now()
-        bot.send_message(user_id, f"Started tracking {activity_name}. Click again to stop.")
-
     session.close()
 
 
-def format_duration(duration):
-    hours, remainder = divmod(duration.seconds, 3600)
+def format_duration(duration_seconds):
+    hours, remainder = divmod(duration_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
 
     # Format the duration as "hours:minutes:seconds"
