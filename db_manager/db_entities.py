@@ -17,6 +17,7 @@ class ActivityCatalog(Base):
     type = Column(String(50))
     status = Column(String(50))
     emoji = Column(String(10))
+    last_chosen = Column(DateTime, default=None)
 
     def __repr__(self):
         return (f"<ActivityCatalog(id={self.id!r}, name={self.name!r}, description={self.description!r}, "

@@ -41,8 +41,10 @@ def csv_to_dict(filename):
 
 # Load activities from the database
 def get_active_activities_from_db():
+    # TODO .filter_by(status='active') - logic with status
+    # for now just returns all the activities
     session = Session()
-    active_activities = session.query(ActivityCatalog).filter_by(status='active').all()
+    active_activities = session.query(ActivityCatalog).all()
     session.close()
     return active_activities
 
@@ -52,11 +54,18 @@ activities = get_active_activities_from_db()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    session = Session()
+
+    # Fetch activities ordered by last_chosen in descending order
+    latest_activities = session.query(ActivityCatalog).order_by(ActivityCatalog.last_chosen.desc()).limit(8).all()
+
+    session.close()
+
     markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
 
-    # TODO: Get most popular activities instead of just first.
-    activity_buttons = [telebot.types.KeyboardButton(f'{a.name} {a.emoji}') for a in
-                        activities[:6]]  # Take the first 6 active activities
+    # Create buttons based on the fetched activities
+    activity_buttons = [telebot.types.KeyboardButton(f'{a.name} {a.emoji}') for a in latest_activities]
+
     markup.add(*activity_buttons)
     markup.add(telebot.types.KeyboardButton("More Activities"))
     bot.send_message(message.chat.id, "Choose an activity to start tracking:", reply_markup=markup)
@@ -136,9 +145,16 @@ def start_or_stop_activity(message):
         duration_timedelta = end_time - start_time
         duration_seconds = duration_timedelta.seconds
 
-        # Here, using activity_id instead of activity_name
         activity = Activity(user_id=user_id, activity_id=activity_id, start_time=start_time, end_time=end_time, duration=duration_seconds)
         session.add(activity)
+
+        # Update the last_chosen timestamp for the activity
+        chosen_activity = session.query(ActivityCatalog).filter_by(name=activity_name).first()
+        if chosen_activity:
+            chosen_activity.last_chosen = datetime.now()
+            session.add(chosen_activity)
+            session.commit()
+
         session.commit()
 
         del active_sessions[user_id][activity_id]
