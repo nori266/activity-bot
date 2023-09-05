@@ -1,4 +1,3 @@
-import csv
 from datetime import datetime
 import os
 
@@ -28,15 +27,6 @@ bot = telebot.TeleBot(TOKEN)
 active_sessions = {}  # To store start time of an activity by user
 
 activity_log_file = "activity_logs.csv"
-
-
-def csv_to_dict(filename):
-    activities = []
-    with open(filename, mode='r') as infile:
-        reader = csv.DictReader(infile)
-        for row in reader:
-            activities.append(row)
-    return activities
 
 
 # Load activities from the database
@@ -125,6 +115,24 @@ def get_activity_id_by_name(name, session):
     return None
 
 
+def get_activity_name_by_id(activity_id):
+    session = Session()  # Start a new session
+
+    try:
+        # Fetch the ActivityCatalog entry by its ID
+        activity_entry = session.query(ActivityCatalog).filter_by(id=activity_id).first()
+
+        if activity_entry:  # If a matching entry was found
+            return activity_entry.name  # Return the name of the activity
+        else:  # If no matching entry was found
+            return None
+    except Exception as e:
+        print(f"Error fetching activity name for ID {activity_id}: {e}")
+        return None
+    finally:
+        session.close()  # Close the session
+
+
 @bot.message_handler(func=lambda message: any(a.name == activity_name_wo_emoji(message.text) for a in activities))
 def start_or_stop_activity(message):
     user_id = message.chat.id
@@ -170,6 +178,23 @@ def start_or_stop_activity(message):
             session.commit()
 
     session.close()
+
+
+@bot.message_handler(commands=['current'])
+def list_current_activities(message):
+    user_id = message.chat.id
+
+    # Check if the user has any active sessions
+    if user_id in active_sessions and active_sessions[user_id]:
+        activities_msg = "Currently active activities:\n"
+        for activity_id, start_time in active_sessions[user_id].items():
+            # Note: You might want to fetch the actual activity name from the database using the activity_id.
+            # For simplicity, I'm assuming you have a function called 'get_activity_name_by_id' that does this.
+            activity_name = get_activity_name_by_id(activity_id)
+            activities_msg += f"- {activity_name} (Started at: {start_time.strftime('%H:%M:%S')})\n"
+        bot.send_message(user_id, activities_msg)
+    else:
+        bot.send_message(user_id, "No currently active activities.")
 
 
 def format_duration(duration_seconds):
