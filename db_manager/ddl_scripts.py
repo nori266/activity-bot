@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db_entities import Activity, Base
+from db_entities import ActivityCatalog, Activity, Base
 
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,28 @@ class DB_DDL:
 
             # Commit the new entries to the database
             self.session.commit()
+        self.session.close()
 
+    def add_activity_catalog_from_csv(self, csv_file_path):
+
+        with open(csv_file_path, mode='r') as file:
+            reader = csv.DictReader(file)
+
+            # Read each row in the CSV
+            for row in reader:
+                # Assuming your CSV columns are named: user_id, activity, start_time, end_time, duration
+                activity = ActivityCatalog(
+                    name=row['name'],
+                    description=row['description'],
+                    type=row['type'],
+                    status=row['status'],
+                    emoji=row['emoji']
+                )
+
+                self.session.add(activity)
+
+            # Commit the new entries to the database
+            self.session.commit()
         self.session.close()
 
     def check_tables_created(self):
@@ -62,8 +83,8 @@ class DB_DDL:
             row_count = self.session.query(table_class).count()
             print(f"Table: {table_name} - Rows: {row_count}")
 
-            # Print rows limited to 30
-            rows = self.session.query(table_class).limit(30).all()
+            # Print rows limited to 10
+            rows = self.session.query(table_class).limit(10).all()
             for row in rows:
                 print(f"    {row}")
 
@@ -81,7 +102,7 @@ class DB_DDL:
         return Session()
 
 
-def reload_data():
+def reload_data(csv_file):
     """
     Reloads data from csv file to the database. Removes all the data from the database and replaces it with the data
     from the csv file.
@@ -92,7 +113,9 @@ def reload_data():
     # TODO add a check to see if the csv file exists
     # TODO backup the database before dropping the tables
     db_ddl.drop_table(Activity)
+    db_ddl.drop_table(ActivityCatalog)
     db_ddl.create_all_tables()
+    db_ddl.add_activity_catalog_from_csv(csv_file)
     db_ddl.check_tables_created()
 
 
@@ -104,7 +127,7 @@ if __name__ == '__main__':
     args.add_argument('--csv', type=str)
     parsed_args = args.parse_args()
     if reload == 'yes':
-        reload_data()
+        reload_data(parsed_args.csv)
     elif reload == 'no':
         print("Data not reloaded.")
         db_ddl = DB_DDL()
