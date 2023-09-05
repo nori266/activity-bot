@@ -64,8 +64,43 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: message.text == "More Activities")
 def more_activities(message):
-    # Here, you can add a more advanced UI, like InlineKeyboard with a dropdown for all 30 activities
-    pass
+    # TODO list activities sorted by frequency
+    session = Session()
+    all_activities = session.query(ActivityCatalog).all()
+    session.close()
+
+    # Create an inline keyboard markup
+    markup = telebot.types.InlineKeyboardMarkup()
+
+    # Assuming each activity has 'id' and 'name' attributes
+    for activity in all_activities:
+        button = telebot.types.InlineKeyboardButton(text=activity.name, callback_data=f"activity_{activity.id}")
+        markup.add(button)
+
+    # Send the markup
+    bot.send_message(message.chat.id, "Select an activity:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("activity_"))
+def handle_activity_callback(call):
+    activity_id = call.data.split("_")[1]
+    user_id = call.message.chat.id
+
+    session = Session()
+    activity = session.query(ActivityCatalog).filter_by(id=activity_id).first()
+    session.close()
+
+    if activity:
+        # Mock a message object to pass to the start_or_stop_activity function
+        mock_message = type('', (), {})()  # Create a simple object
+        mock_message.text = activity.name
+        mock_message.chat = type('', (), {})()
+        mock_message.chat.id = user_id
+
+        # Call the function
+        start_or_stop_activity(mock_message)
+
+    bot.answer_callback_query(call.id)
 
 
 # Define a function to retrieve activity_id by its name
@@ -114,6 +149,7 @@ def start_or_stop_activity(message):
         bot.send_message(user_id, f"Started tracking {activity_name}. Click again to stop.")
 
     session.close()
+
 
 def format_duration(duration):
     hours, remainder = divmod(duration.seconds, 3600)
