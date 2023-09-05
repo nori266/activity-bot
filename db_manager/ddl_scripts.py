@@ -1,9 +1,10 @@
 import argparse
-import configparser
 import csv
 from datetime import datetime
 import logging
+import os
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -12,6 +13,8 @@ from db_entities import Activity, Base
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level = logging.DEBUG)
+
+load_dotenv()
 
 
 class DB_DDL:
@@ -66,12 +69,10 @@ class DB_DDL:
 
     @staticmethod
     def get_session():
-        config = configparser.ConfigParser()
-        config.read('creds.ini')
 
         # Database setup
-        DB_URL = config.get('database', 'DB_URL')
-        DB_HOST = config.get('database', 'DB_HOST')
+        DB_URL = os.environ.get('DB_URL')
+        DB_HOST = os.environ.get('DB_HOST')
         engine = create_engine(
             DB_URL,
             connect_args=dict(host=DB_HOST, port=3306)

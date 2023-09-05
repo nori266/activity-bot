@@ -4,6 +4,7 @@ idna==3.4
 mysql-connector-python==8.1.0
 protobuf==4.21.12
 pyTelegramBotAPI==4.13.0
+python-dotenv
 requests==2.31.0
 SQLAlchemy==2.0.20
 typing_extensions==4.7.1

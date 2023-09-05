@@ -1,14 +1,14 @@
-import configparser
+from os import environ
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
 
-config = configparser.ConfigParser()
-config.read('creds.ini')
+load_dotenv()
 
-db_url = config.get('database', 'DB_URL')
-db_host = config.get('database', 'DB_HOST')
+db_url = environ.get('DB_URL')
+db_host = environ.get('DB_HOST')
 engine = create_engine(
             db_url,
             connect_args=dict(host=db_host, port=3306)
@@ -17,7 +17,7 @@ engine = create_engine(
 # Define the SQL query to fetch table size information
 query = text("SHOW TABLE STATUS")
 
-# Execute the query and fetch all rows
+# Execute the query and fetch all rows corresponding to tables
 with engine.connect() as connection:
     result = connection.execute(query)
     rows = result.fetchall()

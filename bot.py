@@ -1,8 +1,8 @@
-import configparser
 import csv
 from datetime import datetime
 import os
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import telebot
@@ -10,13 +10,11 @@ import telebot
 from db_manager.db_entities import Activity
 
 
-config = configparser.ConfigParser()
-config.read('creds.ini')
-
+load_dotenv()
 
 # Database setup
-DB_URL = config.get('database', 'DB_URL')
-DB_HOST = config.get('database', 'DB_HOST')
+DB_URL = os.environ.get('DB_URL')
+DB_HOST = os.environ.get('DB_HOST')
 engine = create_engine(
             DB_URL,
             connect_args=dict(host=DB_HOST, port=3306)
@@ -24,7 +22,7 @@ engine = create_engine(
 Session = sessionmaker(bind=engine)
 
 
-TOKEN = config.get('telebot', 'bot_token')
+TOKEN = os.environ.get('bot_token')
 bot = telebot.TeleBot(TOKEN)
 
 active_sessions = {}  # To store start time of an activity by user
