@@ -16,7 +16,8 @@ DB_URL = os.environ.get('DB_URL')
 DB_HOST = os.environ.get('DB_HOST')
 engine = create_engine(
             DB_URL,
-            connect_args=dict(host=DB_HOST, port=3306)
+            connect_args=dict(host=DB_HOST, port=3306),
+            pool_recycle=280
         )
 Session = sessionmaker(bind=engine)
 
