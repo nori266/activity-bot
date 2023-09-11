@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql.expression import func
@@ -37,3 +39,12 @@ class Activity(Base):
         return (f"<Activity(id={self.id!r}, user_id={self.user_id!r}, "
                 f"activity_id={self.activity_id!r}, start_time={self.start_time!r}, "
                 f"end_time={self.end_time!r}, duration={self.duration!r})>")
+
+
+class ActiveSession(Base):
+    __tablename__ = 'active_sessions'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, index=True, nullable=False)
+    activity_id = Column(Integer, ForeignKey('activity_catalog.id'), nullable=False)
+    start_time = Column(DateTime, default=datetime.utcnow)

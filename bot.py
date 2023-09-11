@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import telebot
 
-from db_manager.db_entities import Activity, ActivityCatalog
+from db_manager.db_entities import Activity, ActivityCatalog, ActiveSession
 
 
 load_dotenv()
@@ -17,7 +17,6 @@ DB_HOST = os.environ.get('DB_HOST')
 engine = create_engine(
             DB_URL,
             connect_args=dict(host=DB_HOST, port=3306),
-            pool_recycle=280
         )
 Session = sessionmaker(bind=engine)
 
@@ -26,8 +25,6 @@ TOKEN = os.environ.get('bot_token')
 bot = telebot.TeleBot(TOKEN)
 
 active_sessions = {}  # To store start time of an activity by user
-
-activity_log_file = "activity_logs.csv"
 
 
 # Load activities from the database
@@ -152,9 +149,11 @@ def start_or_stop_activity(message):
     if user_id not in active_sessions:
         active_sessions[user_id] = {}
 
-    if activity_id in active_sessions[user_id]:
-        # Stop the activity
-        start_time = active_sessions[user_id][activity_id]
+    # Stop the activity
+    active_session = session.query(ActiveSession).filter_by(user_id=user_id, activity_id=activity_id).first()
+    if active_session:
+        start_time = active_session.start_time
+
         end_time = datetime.now()
         duration_timedelta = end_time - start_time
         duration_seconds = duration_timedelta.seconds
@@ -162,13 +161,15 @@ def start_or_stop_activity(message):
 
         activity = Activity(user_id=user_id, activity_id=activity_id, start_time=start_time, end_time=end_time, duration=duration_seconds)
         session.add(activity)
+        session.delete(active_session)
         session.commit()
 
-        del active_sessions[user_id][activity_id]
         bot.send_message(user_id, f"Stopped tracking {activity_name}. Duration: {formatted_duration} seconds")
     else:
         # Start the activity
-        active_sessions[user_id][activity_id] = datetime.now()
+        new_session = ActiveSession(user_id=user_id, activity_id=activity_id)
+        session.add(new_session)
+
         bot.send_message(user_id, f"Started tracking {activity_name}. Click again to stop.")
 
         # Update the last_chosen timestamp for the activity to rearrange the buttons
@@ -185,14 +186,14 @@ def start_or_stop_activity(message):
 def list_current_activities(message):
     user_id = message.chat.id
 
-    # Check if the user has any active sessions
-    if user_id in active_sessions and active_sessions[user_id]:
+    session = Session()
+    active_sessions_db = session.query(ActiveSession).filter_by(user_id=user_id).all()
+
+    if active_sessions_db:
         activities_msg = "Currently active activities:\n"
-        for activity_id, start_time in active_sessions[user_id].items():
-            # Note: You might want to fetch the actual activity name from the database using the activity_id.
-            # For simplicity, I'm assuming you have a function called 'get_activity_name_by_id' that does this.
-            activity_name = get_activity_name_by_id(activity_id)
-            activities_msg += f"- {activity_name} (Started at: {start_time.strftime('%H:%M:%S')})\n"
+        for active_session in active_sessions_db:
+            activity_name = get_activity_name_by_id(active_session.activity_id)
+            activities_msg += f"- {activity_name} (Started at: {active_session.start_time.strftime('%H:%M:%S')})\n"
         bot.send_message(user_id, activities_msg)
     else:
         bot.send_message(user_id, "No currently active activities.")
@@ -211,8 +212,5 @@ def activity_name_wo_emoji(name: str):
 
 
 if __name__ == '__main__':
-    if not os.path.exists(activity_log_file):
-        with open(activity_log_file, "w") as f:
-            f.write("user_id,activity,start_time,end_time,duration\n")  # Header
 
     bot.polling(none_stop=True)

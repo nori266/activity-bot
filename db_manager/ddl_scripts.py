@@ -83,8 +83,14 @@ class DB_DDL:
             row_count = self.session.query(table_class).count()
             print(f"Table: {table_name} - Rows: {row_count}")
 
-            # Print rows limited to 10
-            rows = self.session.query(table_class).limit(10).all()
+            # Check if there are any rows in the table
+            if row_count == 0:
+                continue
+
+            primary_key_column = table_class.primary_key.columns.values()[0]
+            # Print last 10 rows by ordering them in reverse based on the primary key
+            rows = self.session.query(table_class).order_by(primary_key_column.desc()).limit(10).all()
+            rows = rows[::-1]
             for row in rows:
                 print(f"    {row}")
 
@@ -112,9 +118,9 @@ def reload_data(csv_file):
     db_ddl = DB_DDL()
     # TODO add a check to see if the csv file exists
     # TODO backup the database before dropping the tables
-    # db_ddl.drop_table(Activity)
+    db_ddl.drop_table(Activity)
     # db_ddl.drop_table(ActivityCatalog)
-    # db_ddl.create_all_tables()
+    db_ddl.create_all_tables()
     # db_ddl.add_activity_catalog_from_csv(csv_file)
     db_ddl.check_tables_created()
 
