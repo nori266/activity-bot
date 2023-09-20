@@ -164,10 +164,10 @@ def start_or_stop_activity(message):
         session.delete(active_session)
         session.commit()
 
-        bot.send_message(user_id, f"Stopped tracking {activity_name}. Duration: {formatted_duration} seconds")
+        bot.send_message(user_id, f"Stopped tracking {activity_name}. Duration: {formatted_duration}")
     else:
         # Start the activity
-        new_session = ActiveSession(user_id=user_id, activity_id=activity_id)
+        new_session = ActiveSession(user_id=user_id, activity_id=activity_id, start_time=datetime.now())
         session.add(new_session)
 
         bot.send_message(user_id, f"Started tracking {activity_name}. Click again to stop.")

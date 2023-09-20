@@ -2,7 +2,6 @@ from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.expression import func
 
 
 Base = declarative_base()
@@ -31,7 +30,7 @@ class Activity(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer)  # Assuming there's a 'user' table add (, ForeignKey('user.id'))
     activity_id = Column(Integer, ForeignKey('activity_catalog.id'))  # referencing the ActivityCatalog table
-    start_time = Column(DateTime, default=func.now())
+    start_time = Column(DateTime, default=datetime.now())
     end_time = Column(DateTime)
     duration = Column(Integer)  # Duration in seconds
 
@@ -47,4 +46,4 @@ class ActiveSession(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, index=True, nullable=False)
     activity_id = Column(Integer, ForeignKey('activity_catalog.id'), nullable=False)
-    start_time = Column(DateTime, default=datetime.utcnow)
+    start_time = Column(DateTime, default=datetime.now())
